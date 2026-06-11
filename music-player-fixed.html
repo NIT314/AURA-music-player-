@@ -1156,5 +1156,23 @@ openDB().then(async () => {
   renderQueue();
 });
 </script>
+  <div onclick="clearAllData()" style="position: fixed; bottom: 90px; right: 20px; background: rgba(255, 77, 77, 0.2); border: 1px solid #ff4d4d; color: #ff4d4d; padding: 10px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; z-index: 9999; cursor: pointer; backdrop-filter: blur(10px);">
+    🗑️ Delete Library
+</div>
+<script>
+function clearAllData() {
+    if(confirm("Kya aap sach mein saare gaane delete karna chahte hain?")) {
+        indexedDB.databases().then(dbs => {
+            dbs.forEach(db => indexedDB.deleteDatabase(db.name));
+            alert("Saare gaane delete ho gaye hain!");
+            window.location.reload(); 
+        }).catch(err => {
+            console.error(err);
+            alert("Kuch error aayi, please app data clear karein.");
+        });
+    }
+}
+</script>
+  
 </body>
 </html>
