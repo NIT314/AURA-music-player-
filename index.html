@@ -725,44 +725,38 @@ function deleteTrackFromDB(fileKey) {
     tx.oncomplete = () => resolve();
   });
 }
-
-
 // ─── AUDIO ENGINE ─────────────────────────────────
 const audio = new Audio();
 audio.volume = volume / 100;
 audio.preload = 'metadata';
-
-// ─── BUG FIX: STREAM STALLING & AUTO-NEXT ───
-let isTrackEnding = false;
 
 // Sync real audio time → UI
 audio.addEventListener('timeupdate', () => {
   if (!audio.duration || !isPlaying) return;
   progress = audio.currentTime / audio.duration;
   updateProgress();
+});
 
-  // FIX: Agar gaana khatam hone wala hai (0.3s bache hain)
-  if (audio.duration - audio.currentTime <= 0.3 && !isTrackEnding) {
-    isTrackEnding = true;
-    if (repeatOn) { 
-        audio.currentTime = 0; 
-        audio.play(); 
-    } else { 
-        nextTrack(); 
-    }
+// Jab gaana naturally khatam ho
+audio.addEventListener('ended', () => {
+  if (repeatOn) { 
+    audio.currentTime = 0; 
+    audio.play(); 
+  } else { 
+    nextTrack(); 
   }
 });
 
-// Naya gaana chalne par tracker ko wapas reset karna
-audio.addEventListener('play', () => {
-    isTrackEnding = false;
-});
-
-audio.addEventListener('ended', () => {
-  if (!isTrackEnding) {
-    isTrackEnding = true;
-    if (repeatOn) { audio.currentTime = 0; audio.play(); }
-    else           { nextTrack(); }
+// ─── SAFE FIX FOR STALLING (Atakne wali problem) ───
+// Jab koi online gaana aakhiri 1 second mein buffering ke liye atke
+audio.addEventListener('waiting', () => {
+  if (audio.duration && (audio.duration - audio.currentTime) <= 1.0) {
+    if (repeatOn) { 
+      audio.currentTime = 0; 
+      audio.play(); 
+    } else { 
+      nextTrack(); 
+    }
   }
 });
 
@@ -772,7 +766,12 @@ audio.addEventListener('loadedmetadata', () => {
   // Update duration from actual file if we have it
   const secs = Math.floor(audio.duration) || t.seconds;
   t.seconds = secs;
-  t.dur = fmtTime(secs);
+  
+  // Sirf local gaano ka time UI mein update karo, Online ka nahi
+  if (t.dur !== 'Preview' && t.dur !== 'Full Song' && t.dur !== 'Online') {
+     t.dur = fmtTime(secs);
+  }
+  
   document.getElementById('totalTime').textContent = t.dur;
   renderQueue();
 });
