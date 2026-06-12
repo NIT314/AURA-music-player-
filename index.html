@@ -434,19 +434,29 @@
 <div class="app">
   <div class="header">
     <div class="header-logo">AURA</div>
-    <div class="header-actions">
+        <div class="header-actions">
       <div class="icon-btn" id="uploadBtn" title="Add Music from Device" style="position:relative;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         <input type="file" id="fileInput" accept="audio/*" multiple style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
       </div>
-      <div class="icon-btn" id="searchBtn">
+      <div class="icon-btn" id="searchBtn" title="Search Songs">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       </div>
       <div class="icon-btn" id="timerBtn" title="Sleep Timer">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 3"/><path d="M5 3 2 6M22 6l-3-3"/></svg>
       </div>
+      <!-- Naya Delete Button -->
+      <div class="icon-btn" id="deleteLibBtn" title="Delete Library" style="border-color: rgba(255, 77, 77, 0.3);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ff4d4d" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+      </div>
     </div>
   </div>
+
+  <!-- Search Bar Container -->
+  <div id="searchContainer" style="display: none; padding: 0 24px 16px;">
+    <input type="text" id="searchInput" placeholder="Search loaded songs..." style="width: 100%; padding: 12px 18px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--text); outline: none; font-family: inherit; font-size: 14px;">
+  </div>
+
 
   <div class="tabs">
     <div class="tab active">For You</div>
@@ -1155,24 +1165,48 @@ openDB().then(async () => {
   drawWaveform(0);
   renderQueue();
 });
-</script>
-  <div onclick="clearAllData()" style="position: fixed; bottom: 90px; right: 20px; background: rgba(255, 77, 77, 0.2); border: 1px solid #ff4d4d; color: #ff4d4d; padding: 10px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; z-index: 9999; cursor: pointer; backdrop-filter: blur(10px);">
-    🗑️ Delete Library
-</div>
-<script>
-function clearAllData() {
-    if(confirm("Kya aap sach mein saare gaane delete karna chahte hain?")) {
-        indexedDB.databases().then(dbs => {
-            dbs.forEach(db => indexedDB.deleteDatabase(db.name));
-            alert("Saare gaane delete ho gaye hain!");
-            window.location.reload(); 
-        }).catch(err => {
-            console.error(err);
-            alert("Kuch error aayi, please app data clear karein.");
-        });
+
+// ─── SEARCH FUNCTIONALITY ─────────────────────────
+document.getElementById('searchBtn').addEventListener('click', () => {
+  const searchContainer = document.getElementById('searchContainer');
+  if (searchContainer.style.display === 'none' || searchContainer.style.display === '') {
+    searchContainer.style.display = 'block';
+    document.getElementById('searchInput').focus();
+  } else {
+    searchContainer.style.display = 'none';
+    document.getElementById('searchInput').value = '';
+    // Sabhi gaano ko wapas show karo
+    document.querySelectorAll('.queue-item').forEach(item => item.style.display = 'flex');
+  }
+});
+
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  const query = e.target.value.toLowerCase();
+  document.querySelectorAll('.queue-item').forEach(item => {
+    const title = item.querySelector('.q-title').textContent.toLowerCase();
+    const artist = item.querySelector('.q-artist').textContent.toLowerCase();
+    if (title.includes(query) || artist.includes(query)) {
+      item.style.display = 'flex';
+    } else {
+      item.style.display = 'none';
     }
-}
+  });
+});
+
+// ─── DELETE LIBRARY FUNCTIONALITY ─────────────────
+document.getElementById('deleteLibBtn').addEventListener('click', () => {
+  if (confirm("Kya aap sach mein saare gaane delete karna chahte hain?")) {
+    indexedDB.databases().then(dbs => {
+      dbs.forEach(db => indexedDB.deleteDatabase(db.name));
+      alert("Saare gaane delete ho gaye hain!");
+      window.location.reload(); 
+    }).catch(err => {
+      console.error(err);
+      alert("Kuch error aayi, please app data clear karein.");
+    });
+  }
+});
+
 </script>
-  
 </body>
 </html>
