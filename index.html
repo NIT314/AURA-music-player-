@@ -435,6 +435,11 @@
   <div class="header">
     <div class="header-logo">AURA</div>
         <div class="header-actions">
+            <div id="masterApiToggle" style="display: flex; background: var(--surface2); border-radius: 20px; padding: 4px; margin: 0 24px 16px 24px; gap: 4px; border: 1px solid rgba(255,255,255,0.05);">
+    <div id="modePreview" style="flex: 1; text-align: center; padding: 10px; border-radius: 16px; background: rgba(201,168,76,0.2); color: var(--gold); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.3s; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">🎬 Preview Mode</div>
+    <div id="modeFull" style="flex: 1; text-align: center; padding: 10px; border-radius: 16px; color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.3s;">🎸 Full Songs</div>
+            </div>
+          
       <div class="icon-btn" id="uploadBtn" title="Add Music from Device" style="position:relative;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         <input type="file" id="fileInput" accept="audio/*" multiple style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
@@ -1204,50 +1209,109 @@ document.getElementById('searchBtn').addEventListener('click', () => {
     document.querySelectorAll('.queue-item').forEach(item => item.style.display = 'flex');
   }
 });
-// ─── ONLINE API SEARCH FUNCTIONALITY (100% RELIABLE ITUNES API) ─────────────────
-document.getElementById('searchInput').addEventListener('keypress', async (e) => {
+// ─── MASTER ONLINE ENGINE (PREVIEW & FULL MODE) ─────────────────
+let currentApiMode = 'preview'; // Default online mode
+const CLIENT_ID = '4215bf6f'; // Apni Jamendo ID yahan daalna
+
+const modePreview = document.getElementById('modePreview');
+const modeFull = document.getElementById('modeFull');
+const searchInput = document.getElementById('searchInput');
+const searchResults = document.getElementById('searchResults');
+
+// 1. Master Toggle Logic
+modePreview.addEventListener('click', () => {
+  currentApiMode = 'preview';
+  modePreview.style.background = 'rgba(201,168,76,0.2)';
+  modePreview.style.color = 'var(--gold)';
+  modePreview.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+  
+  modeFull.style.background = 'transparent';
+  modeFull.style.color = 'var(--muted)';
+  modeFull.style.boxShadow = 'none';
+  
+  searchInput.placeholder = 'Search local, or press Enter for iTunes...';
+});
+
+modeFull.addEventListener('click', () => {
+  currentApiMode = 'full';
+  modeFull.style.background = 'rgba(201,168,76,0.2)';
+  modeFull.style.color = 'var(--gold)';
+  modeFull.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+  
+  modePreview.style.background = 'transparent';
+  modePreview.style.color = 'var(--muted)';
+  modePreview.style.boxShadow = 'none';
+  
+  searchInput.placeholder = 'Search local, or press Enter for Jamendo...';
+});
+
+// 2. Local Search (Bina Enter dabaye type karte hi local gaane dhoondega)
+searchInput.addEventListener('input', (e) => {
+  const query = e.target.value.toLowerCase();
+  document.querySelectorAll('.queue-item').forEach(item => {
+    const title = item.querySelector('.q-title')?.textContent.toLowerCase() || '';
+    const artist = item.querySelector('.q-artist')?.textContent.toLowerCase() || '';
+    item.style.display = (title.includes(query) || artist.includes(query)) ? 'flex' : 'none';
+  });
+});
+
+// 3. Online Smart Search (Enter dabane par)
+searchInput.addEventListener('keypress', async (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
     const query = e.target.value.trim();
     if (!query) return;
 
-    const resultsContainer = document.getElementById('searchResults');
-    resultsContainer.style.display = 'flex';
-    resultsContainer.innerHTML = '<div style="color:var(--gold); font-size:13px; text-align:center;">Dhoondh raha hoon... 🌐🎵</div>';
+    searchResults.style.display = 'flex';
+    searchResults.innerHTML = `<div style="color:var(--gold); font-size:13px; text-align:center;">${currentApiMode === 'preview' ? 'iTunes' : 'Jamendo'} se dhoondh raha hoon... 🌐🎵</div>`;
 
     try {
-      // iTunes API (No CORS issue, 100% uptime, ekdum fast)
-      const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=10`);
-      const data = await response.json();
+      let data;
+      // Mode Check
+      if (currentApiMode === 'preview') {
+          const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=15`);
+          data = await response.json();
+      } else {
+          const response = await fetch(`https://api.jamendo.com/v3.0/tracks/?client_id=${CLIENT_ID}&format=json&limit=15&search=${encodeURIComponent(query)}`);
+          data = await response.json();
+      }
 
-      if (data && data.results && data.results.length > 0) {
-         resultsContainer.innerHTML = ''; 
+      const items = currentApiMode === 'preview' ? data.results : data.results;
+
+      if (items && items.length > 0) {
+         searchResults.innerHTML = ''; 
          
-         data.results.forEach(song => {
-            const audioLink = song.previewUrl; // 30-sec preview link
-            const imageLink = song.artworkUrl100.replace('100x100bb', '500x500bb'); // High Quality HD Poster
+         items.forEach(song => {
+            const audioLink = currentApiMode === 'preview' ? song.previewUrl : song.audio;
+            const imageLink = currentApiMode === 'preview' ? song.artworkUrl100.replace('100x100bb', '500x500bb') : song.image;
+            const trackName = currentApiMode === 'preview' ? song.trackName : song.name;
+            const artistName = currentApiMode === 'preview' ? song.artistName : song.artist_name;
+            const durationTxt = currentApiMode === 'preview' ? 'Preview' : 'Full Song';
+            const durationSec = currentApiMode === 'preview' ? 30 : song.duration;
+            const trackEmoji = currentApiMode === 'preview' ? '🎬' : '🎸';
 
             if(!audioLink) return;
 
             const resultItem = document.createElement('div');
-            resultItem.style.cssText = "display:flex; align-items:center; gap:12px; background:var(--surface); padding:10px; border-radius:12px; cursor:pointer; border:1px solid rgba(255,255,255,0.05);";
+            resultItem.style.cssText = "display:flex; align-items:center; gap:12px; background:var(--surface); padding:10px; border-radius:12px; cursor:pointer; border:1px solid rgba(255,255,255,0.05); transition: background 0.2s;";
+            
             resultItem.innerHTML = `
               <img src="${imageLink}" style="width:45px; height:45px; border-radius:8px; object-fit:cover;">
               <div style="flex:1; min-width:0;">
-                <div style="font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text);">${song.trackName}</div>
-                <div style="font-size:12px; color:var(--muted);">${song.artistName}</div>
+                <div style="font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text);">${trackName}</div>
+                <div style="font-size:12px; color:var(--muted);">${artistName}</div>
               </div>
               <div style="color:var(--gold); font-size:24px; padding-right:8px;">▶</div>
             `;
 
             resultItem.addEventListener('click', () => {
                 tracks.push({
-                    title: song.trackName,
-                    artist: song.artistName,
-                    dur: 'Preview',
-                    seconds: 30,
+                    title: trackName,
+                    artist: artistName,
+                    dur: durationTxt,
+                    seconds: durationSec,
                     color: pickColor(tracks.length), 
-                    emoji: '🌐', 
+                    emoji: trackEmoji, 
                     url: audioLink
                 });
                 
@@ -1257,22 +1321,20 @@ document.getElementById('searchInput').addEventListener('keypress', async (e) =>
                 
                 isPlaying = true;
                 document.getElementById('playIcon').innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
-                document.getElementById('nowBadge').textContent = '▶ STREAMING PREVIEW';
+                document.getElementById('nowBadge').textContent = `▶ STREAMING ${durationTxt.toUpperCase()}`;
                 audio.play(); 
                 
-                resultsContainer.style.display = 'none';
-                document.getElementById('searchInput').value = '';
+                searchResults.style.display = 'none';
+                searchInput.value = '';
                 document.getElementById('searchContainer').style.display = 'none';
             });
-
-            resultsContainer.appendChild(resultItem);
+            searchResults.appendChild(resultItem);
          });
       } else {
-         resultsContainer.innerHTML = '<div style="color:var(--muted); font-size:13px; text-align:center;">Koi gaana nahi mila bro 😔</div>';
+         searchResults.innerHTML = '<div style="color:var(--muted); font-size:13px; text-align:center;">Koi gaana nahi mila bro 😔</div>';
       }
     } catch (error) {
-      resultsContainer.innerHTML = '<div style="color:#ff4d4d; font-size:13px; text-align:center;">Network Error aayi bhai. ⚠️</div>';
-      console.error(error);
+      searchResults.innerHTML = '<div style="color:#ff4d4d; font-size:13px; text-align:center;">Network Error. ⚠️</div>';
     }
   }
 });
