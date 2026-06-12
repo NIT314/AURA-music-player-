@@ -732,16 +732,38 @@ const audio = new Audio();
 audio.volume = volume / 100;
 audio.preload = 'metadata';
 
+// ─── BUG FIX: STREAM STALLING & AUTO-NEXT ───
+let isTrackEnding = false;
+
 // Sync real audio time → UI
 audio.addEventListener('timeupdate', () => {
   if (!audio.duration || !isPlaying) return;
   progress = audio.currentTime / audio.duration;
   updateProgress();
+
+  // FIX: Agar gaana khatam hone wala hai (0.3s bache hain)
+  if (audio.duration - audio.currentTime <= 0.3 && !isTrackEnding) {
+    isTrackEnding = true;
+    if (repeatOn) { 
+        audio.currentTime = 0; 
+        audio.play(); 
+    } else { 
+        nextTrack(); 
+    }
+  }
+});
+
+// Naya gaana chalne par tracker ko wapas reset karna
+audio.addEventListener('play', () => {
+    isTrackEnding = false;
 });
 
 audio.addEventListener('ended', () => {
-  if (repeatOn) { audio.currentTime = 0; audio.play(); }
-  else           { nextTrack(); }
+  if (!isTrackEnding) {
+    isTrackEnding = true;
+    if (repeatOn) { audio.currentTime = 0; audio.play(); }
+    else           { nextTrack(); }
+  }
 });
 
 audio.addEventListener('loadedmetadata', () => {
@@ -760,6 +782,7 @@ audio.addEventListener('error', () => {
 });
 
 // ─── HELPERS ──────────────────────────────────────
+
 function fmtTime(s) {
   const m = Math.floor(s / 60);
   return `${m}:${String(Math.floor(s % 60)).padStart(2,'0')}`;
